@@ -134,9 +134,34 @@ class MailJetEmailTool:
         dates = recommendation_data.get("dates", "Dates not specified")
         budget = recommendation_data.get("budget", 0)
         
+        print(f"📧 Email data type: {type(recommendation_data)}")
         print(f"📧 Email data keys: {list(recommendation_data.keys()) if isinstance(recommendation_data, dict) else 'Not a dict'}")
-        print(f"📧 Recommendation source: {'full_recommendation' if recommendation_data.get('full_recommendation') else 'raw' if recommendation_data.get('raw') else 'other'}")
-        print(f"📧 Text length: {len(str(full_recommendation))}")
+        print(f"📧 Raw data preview: {repr(recommendation_data)[:200]}...")
+        
+        # If we got a string that looks like a dictionary, try to parse it
+        if isinstance(recommendation_data, str) and recommendation_data.strip().startswith('{'):
+            try:
+                import ast
+                print("📧 Attempting to parse string as dictionary...")
+                parsed_data = ast.literal_eval(recommendation_data)
+                if isinstance(parsed_data, dict):
+                    print(f"📧 Successfully parsed! Keys: {list(parsed_data.keys())}")
+                    recommendation_data = parsed_data
+                    # Re-extract with the parsed data
+                    if parsed_data.get("full_recommendation"):
+                        full_recommendation = parsed_data.get("full_recommendation")
+                    elif parsed_data.get("raw"):
+                        full_recommendation = parsed_data.get("raw")
+                        print(f"📧 Using 'raw' key, length: {len(full_recommendation)}")
+                    elif parsed_data.get("description"):
+                        full_recommendation = parsed_data.get("description")
+                    else:
+                        full_recommendation = str(parsed_data)
+            except Exception as e:
+                print(f"📧 Failed to parse string as dict: {e}")
+        
+        print(f"📧 Final recommendation length: {len(str(full_recommendation))}")
+        print(f"📧 Final recommendation preview: {repr(str(full_recommendation)[:100])}...")
         
         # Format the recommendation text for HTML
         formatted_recommendation = self._format_text_for_html(full_recommendation)
