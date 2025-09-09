@@ -120,6 +120,19 @@ class MailJetEmailTool:
             # First try the standard keys
             if recommendation_data.get("full_recommendation"):
                 full_recommendation = recommendation_data.get("full_recommendation")
+                
+                # Check if full_recommendation is actually a stringified dict
+                if isinstance(full_recommendation, str) and full_recommendation.strip().startswith('{'):
+                    print("📧 full_recommendation is a stringified dict, parsing...")
+                    try:
+                        import ast
+                        parsed_full_rec = ast.literal_eval(full_recommendation)
+                        if isinstance(parsed_full_rec, dict) and parsed_full_rec.get('raw'):
+                            full_recommendation = parsed_full_rec.get('raw')
+                            print(f"📧 Extracted from parsed full_recommendation['raw'], length: {len(full_recommendation)}")
+                    except Exception as e:
+                        print(f"📧 Failed to parse full_recommendation: {e}")
+                        
             elif recommendation_data.get("raw"):
                 full_recommendation = recommendation_data.get("raw")
             elif recommendation_data.get("description"):
