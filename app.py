@@ -581,8 +581,9 @@ def search_page():
                         form_data=True
                     )
                     
-                    if response and response.status_code == 200:
+                    if response and response.status_code == 202:
                         search_response = response.json()
+                        st.info(f"🚀 Search started successfully! Search ID: {search_response.get('search_id', 'Unknown')}")
                         
                         # Enhanced backend returns search_id and processes asynchronously
                         if 'search_id' in search_response:
@@ -636,8 +637,15 @@ def search_page():
                         st.error("❌ Session expired. Please login again.")
                         logout()
                         st.rerun()
+                    elif response:
+                        st.error(f"❌ Search failed. Status code: {response.status_code}")
+                        try:
+                            error_data = response.json()
+                            st.error(f"Debug: Error details: {error_data}")
+                        except:
+                            st.error(f"Debug: Raw response: {response.text}")
                     else:
-                        st.error("❌ Search failed. Please try again.")
+                        st.error("❌ Search failed. No response received.")
 
 def handle_email_sharing_modals():
     """Handle email sharing modals for all recommendations"""
