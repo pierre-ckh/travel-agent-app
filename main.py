@@ -312,6 +312,26 @@ async def test_login():
         print(f"Test login error: {e}")
         return {"error": str(e)}
 
+@app.post("/create-test-user")
+async def create_test_user():
+    """Create a test user for debugging"""
+    try:
+        if not db:
+            return {"error": "Database not available", "status": 503}
+        
+        # Try to create a simple test user
+        test_user_data = {
+            "username": "testuser",
+            "email": "test@example.com",
+            "password_hash": pwd_context.hash("testpass123"),
+            "is_active": True
+        }
+        
+        user = db.create_user(test_user_data)
+        return {"message": "Test user created successfully", "user_id": user.get("id") if user else None}
+    except Exception as e:
+        return {"error": str(e), "status": 500}
+
 @app.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user: UserRegister):
     """Register a new user"""

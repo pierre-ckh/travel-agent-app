@@ -155,10 +155,19 @@ def login_page():
                                 st.rerun()
                             else:
                                 st.error("❌ Login response missing required data")
+                                st.error(f"Debug: Response data: {data}")
                         elif response and response.status_code == 401:
                             st.error("❌ Invalid username or password")
+                        elif response and response.status_code == 503:
+                            st.error("❌ Database not available. Please try again later.")
                         else:
-                            st.error("❌ Login failed. Please try again.")
+                            st.error(f"❌ Login failed. Status code: {response.status_code if response else 'No response'}")
+                            if response:
+                                try:
+                                    error_data = response.json()
+                                    st.error(f"Debug: Error details: {error_data}")
+                                except:
+                                    st.error(f"Debug: Raw response: {response.text}")
                     except Exception as e:
                         st.error(f"❌ Login error: {str(e)}")
                 else:

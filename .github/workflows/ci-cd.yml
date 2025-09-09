@@ -1,0 +1,313 @@
+Here's a comprehensive GitHub Actions workflow YAML for your CI/CD pipeline:
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-asyncio
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+    - name: Run pytest on agents
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        API_KEY: ${{ secrets.API_KEY }}
+      run: |
+        pytest agents/ -v --cov=agents --cov-report=xml --cov-report=term
+
+    - name: Run pytest on database
+      env:
+        DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+        API_KEY: ${{ secrets.API_KEY }}
+      run: |
+        pytest database/ -v --cov=database --cov-report=xml --cov-report=term
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check if Dockerfile exists
+      id: dockerfile-check
+      run: |
+        if [ -f Dockerfile ]; then
+          echo "dockerfile_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "dockerfile_exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set up Docker Buildx
+      if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry
+      if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          API_KEY=${{ secrets.API_KEY }}
+
+  deploy-vercel:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: [test, docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+
+    - name: Install Vercel CLI
+      run: npm install -g vercel
+
+    - name: Pull Vercel Environment Information
+      run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      env:
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    - name: Build Project Artifacts
+      run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      env:
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        API_KEY: ${{ secrets.API_KEY }}
+
+    - name: Deploy to Vercel
+      id: deploy
+      run: |
+        deployment_url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+        echo "url=$deployment_url" >> $GITHUB_OUTPUT
+      env:
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        API_KEY: ${{ secrets.API_KEY }}
+
+    - name: Comment PR with deployment URL
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '✅ Deployment successful! Visit: ${{ steps.deploy.outputs.url }}'
+          })
+
+  notify:
+    name: Notify Status
+    runs-on: ubuntu-latest
+    needs: [test, docker-build, deploy-vercel]
+    if: always()
+    
+    steps:
+    - name: Send notification
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const jobStatus = {
+            test: '${{ needs.test.result }}',
+            docker: '${{ needs.docker-build.result }}',
+            deploy: '${{ needs.deploy-vercel.result }}'
+          };
+          
+          const overallStatus = Object.values(jobStatus).every(status => 
+            status === 'success' || status === 'skipped'
+          ) ? '✅ Success' : '❌ Failed';
+          
+          console.log(`CI/CD Pipeline ${overallStatus}`);
+          console.log('Job Results:', jobStatus);
+
+    - name: Slack Notification (Optional)
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          CI/CD Pipeline ${{ job.status }}
+          Test: ${{ needs.test.result }}
+          Docker: ${{ needs.docker-build.result }}
+          Deploy: ${{ needs.deploy-vercel.result }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      continue-on-error: true
+```
+
+## Required Repository Secrets
+
+Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+
+```yaml
+# Required Secrets:
+DATABASE_URL          # Your database connection string
+API_KEY              # Your API key for services
+VERCEL_TOKEN         # Your Vercel authentication token
+VERCEL_ORG_ID        # Your Vercel organization ID
+VERCEL_PROJECT_ID    # Your Vercel project ID
+
+# Optional:
+SLACK_WEBHOOK_URL    # For Slack notifications (optional)
+```
+
+## Additional Configuration Files
+
+### `.github/dependabot.yml` (Optional - for dependency updates)
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+```
+
+### `vercel.json` (Vercel configuration)
+```json
+{
+  "framework": null,
+  "buildCommand": "pip install -r requirements.txt",
+  "devCommand": "python app.py",
+  "outputDirectory": ".",
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "API_KEY": "@api_key"
+  },
+  "build": {
+    "env": {
+      "DATABASE_URL": "@database_url",
+      "API_KEY": "@api_key"
+    }
+  }
+}
+```
+
+## Key Features
+
+1. **Test Stage**: Runs pytest on both `agents/` and `database/` directories with PostgreSQL service
+2. **Docker Build**: Conditionally builds and pushes Docker images if Dockerfile exists
+3. **Vercel Deployment**: Uses Vercel CLI for production deployments
+4. **Caching**: Implements caching for pip packages and npm dependencies
+5. **Environment Protection**: Uses GitHub environments for production deployments
+6. **Notifications**: Optional Slack notifications and PR comments
+7. **Coverage Reports**: Uploads test coverage to Codecov
+
+## Usage
+
+1. Add the workflow file to `.github/workflows/ci-cd.yml`
+2. Configure all required secrets in your repository settings
+3. Ensure your project has proper test files in `agents/` and `database/` directories
+4. Push to the main branch to trigger the workflow
+
+The workflow will automatically run tests, build Docker images (if applicable), and deploy to Vercel on successful pushes to the main branch.
