@@ -710,6 +710,11 @@ def handle_email_sharing_modals():
                                 if result.get('status') == 'success':
                                     st.success(f"✅ Email sent successfully to {recipient_email}!")
                                     st.info("📧 **Note:** Please check your spam/junk folder if you don't see the email in your inbox within a few minutes.")
+                                    
+                                    # Show messages for a few seconds before closing modal
+                                    import time
+                                    time.sleep(3)
+                                    
                                     # Clear modal state
                                     st.session_state[modal_key] = False
                                     if recommendation_key in st.session_state:
