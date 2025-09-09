@@ -68,12 +68,12 @@ def make_api_request(endpoint: str, method: str = "GET", data: dict = None, head
     try:
         st.info(f"🌐 Making {method} request to: {url}")
         if method == "GET":
-            response = requests.get(url, params=data, headers=headers, timeout=30)
+            response = requests.get(url, params=data, headers=headers, timeout=60)
         elif method == "POST":
             if form_data:
-                response = requests.post(url, data=data, headers=headers, timeout=30)
+                response = requests.post(url, data=data, headers=headers, timeout=60)
             else:
-                response = requests.post(url, json=data, headers=headers, timeout=30)
+                response = requests.post(url, json=data, headers=headers, timeout=60)
         else:
             raise ValueError(f"Unsupported method: {method}")
         

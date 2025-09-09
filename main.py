@@ -64,7 +64,10 @@ refresh_tokens = {}
 # Get database URL from environment or use SQLite as fallback
 database_url = os.getenv("DATABASE_URL")
 if not database_url or "[YOUR-PROJECT-ID]" in database_url:
-    database_url = "sqlite:///travel_app.db"  # Fallback to SQLite
+    # Use tmp directory for SQLite on Render (read-only filesystem)
+    import tempfile
+    temp_dir = tempfile.gettempdir()
+    database_url = f"sqlite:///{temp_dir}/travel_app.db"
     print(f"Using SQLite database: {database_url}")
 else:
     print(f"Using database URL: {database_url[:50]}...")  # Print first 50 chars for security
@@ -72,15 +75,27 @@ else:
 # Try to connect to database with fallback to SQLite
 if database_available and Database:
     try:
+        print(f"Attempting database connection to: {database_url[:50]}...")
         db = Database(database_url)
-        print("Database connection successful!")
+        print("✅ Database connection successful!")
     except Exception as e:
-        print(f"Database connection failed: {e}")
-        print("Falling back to SQLite...")
+        print(f"❌ Primary database connection failed: {e}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        
+        print("🔄 Falling back to SQLite...")
         try:
-            db = Database("sqlite:///travel_app.db")
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            sqlite_url = f"sqlite:///{temp_dir}/travel_app_fallback.db"
+            print(f"Trying SQLite fallback: {sqlite_url}")
+            db = Database(sqlite_url)
+            print("✅ SQLite fallback connection successful!")
         except Exception as e2:
-            print(f"SQLite fallback also failed: {e2}")
+            print(f"❌ SQLite fallback also failed: {e2}")
+            print(f"SQLite error type: {type(e2).__name__}")
+            print(f"SQLite traceback: {traceback.format_exc()}")
             db = None
 else:
     print("Database module not available - running without database")
