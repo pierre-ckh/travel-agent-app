@@ -11,6 +11,7 @@ from tools.mailjet_email_tool import MailJetEmailTool
 # Configuration
 # Get API URL from environment variable, fallback to localhost for development
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8002")
+print(f"🌍 Using API_BASE_URL: {API_BASE_URL}")
 JWT_SECRET = "your-secret-key-change-this-in-production"  # Should match backend secret
 JWT_ALGORITHM = "HS256"
 
@@ -65,22 +66,28 @@ def make_api_request(endpoint: str, method: str = "GET", data: dict = None, head
     url = f"{API_BASE_URL}{endpoint}"
     
     try:
+        st.info(f"🌐 Making {method} request to: {url}")
         if method == "GET":
-            response = requests.get(url, params=data, headers=headers)
+            response = requests.get(url, params=data, headers=headers, timeout=30)
         elif method == "POST":
             if form_data:
-                response = requests.post(url, data=data, headers=headers)
+                response = requests.post(url, data=data, headers=headers, timeout=30)
             else:
-                response = requests.post(url, json=data, headers=headers)
+                response = requests.post(url, json=data, headers=headers, timeout=30)
         else:
             raise ValueError(f"Unsupported method: {method}")
         
+        st.info(f"✅ Request completed. Status: {response.status_code}")
         return response
-    except requests.exceptions.ConnectionError:
-        st.error("❌ Cannot connect to the backend server. Please ensure the FastAPI server is running.")
+    except requests.exceptions.ConnectionError as e:
+        st.error(f"❌ Cannot connect to the backend server at {url}")
+        st.error(f"Connection error details: {str(e)}")
+        return None
+    except requests.exceptions.Timeout:
+        st.error(f"❌ Request timeout to {url}")
         return None
     except Exception as e:
-        st.error(f"❌ Error making request: {str(e)}")
+        st.error(f"❌ Error making request to {url}: {str(e)}")
         return None
 
 def get_auth_headers():
@@ -208,11 +215,13 @@ def register_page():
                         st.error("❌ Password must be at least 6 characters long")
                     else:
                         # Make API call to register endpoint
+                        st.info(f"🔄 Attempting registration to: {API_BASE_URL}/register")
                         response = make_api_request(
                             "/register",
                             method="POST",
                             data={"username": username, "email": email, "password": password}
                         )
+                        st.info(f"📡 API Response received: {response is not None}")
                         
                         if response and response.status_code == 201:
                             st.success("✅ Registration successful! Please login.")
