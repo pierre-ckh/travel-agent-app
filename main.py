@@ -16,7 +16,14 @@ import asyncio
 from typing import Set
 
 # Import your custom modules
-from database import Database
+try:
+    from database import Database
+    database_available = True
+except ImportError as e:
+    print(f"Database module not available: {e}")
+    Database = None
+    database_available = False
+    
 # from agents import TripPlannerCrew  # Comment out for now if causing issues
 
 
@@ -63,13 +70,29 @@ else:
     print(f"Using database URL: {database_url[:50]}...")  # Print first 50 chars for security
     
 # Try to connect to database with fallback to SQLite
-try:
-    db = Database(database_url)
-    print("Database connection successful!")
-except Exception as e:
-    print(f"Database connection failed: {e}")
-    print("Falling back to SQLite...")
-    db = Database("sqlite:///travel_app.db")
+if database_available and Database:
+    try:
+        db = Database(database_url)
+        print("Database connection successful!")
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+        print("Falling back to SQLite...")
+        try:
+            db = Database("sqlite:///travel_app.db")
+        except Exception as e2:
+            print(f"SQLite fallback also failed: {e2}")
+            db = None
+else:
+    print("Database module not available - running without database")
+    db = None
+
+# Helper function to check database availability
+def require_database():
+    if not db:
+        raise HTTPException(
+            status_code=503, 
+            detail="Database not available. Please try again later."
+        )
 
 # Pydantic models
 class UserRegister(BaseModel):
@@ -184,6 +207,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
     
+    require_database()
     user = db.get_user_by_auth(username=token_data.username)
     if user is None:
         raise credentials_exception
