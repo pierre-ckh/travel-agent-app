@@ -713,7 +713,7 @@ def handle_email_sharing_modals():
                                     
                                     # Show messages for a few seconds before closing modal
                                     import time
-                                    time.sleep(3)
+                                    time.sleep(5)
                                     
                                     # Clear modal state
                                     st.session_state[modal_key] = False
