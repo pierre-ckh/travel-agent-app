@@ -1,11 +1,7 @@
-```json
 {
   "version": 2,
-  
-  "// Build Configuration": "Defines how Vercel builds and deploys the application",
   "builds": [
     {
-      "// FastAPI Backend": "Configure FastAPI as a serverless function",
       "src": "main.py",
       "use": "@vercel/python",
       "config": {
@@ -14,7 +10,6 @@
       }
     },
     {
-      "// Streamlit Frontend": "Configure Streamlit app deployment",
       "src": "app.py",
       "use": "@vercel/python",
       "config": {
@@ -23,11 +18,8 @@
       }
     }
   ],
-  
-  "// Routing Configuration": "Define how requests are routed to different parts of the application",
   "routes": [
     {
-      "// API Routes": "Route all /api/* requests to FastAPI backend",
       "src": "/api/(.*)",
       "dest": "main.py",
       "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -38,20 +30,16 @@
       }
     },
     {
-      "// Static Assets": "Serve static files directly",
       "src": "/static/(.*)",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
       }
     },
     {
-      "// Frontend Routes": "Route all other requests to Streamlit frontend",
       "src": "/(.*)",
       "dest": "app.py"
     }
   ],
-  
-  "// Environment Variables": "Define required environment variables for the application",
   "env": {
     "ANTHROPIC_API_KEY": "@anthropic_api_key",
     "AMADEUS_API_KEY": "@amadeus_api_key",
@@ -61,8 +49,6 @@
     "MAILGUN_DOMAIN": "@mailgun_domain",
     "DATABASE_URL": "@database_url"
   },
-  
-  "// Build Environment Variables": "Environment variables available during build time",
   "build": {
     "env": {
       "ANTHROPIC_API_KEY": "@anthropic_api_key",
@@ -74,8 +60,6 @@
       "DATABASE_URL": "@database_url"
     }
   },
-  
-  "// Function Configuration": "Configure serverless function settings",
   "functions": {
     "main.py": {
       "runtime": "python3.10",
@@ -106,8 +90,6 @@
       }
     }
   },
-  
-  "// Headers Configuration": "Global headers for security and optimization",
   "headers": [
     {
       "source": "/(.*)",
@@ -127,8 +109,6 @@
       ]
     }
   ],
-  
-  "// Redirects": "Handle common redirect scenarios",
   "redirects": [
     {
       "source": "/api",
@@ -136,62 +116,9 @@
       "permanent": true
     }
   ],
-  
-  "// Python Configuration": "Additional Python-specific settings",
   "installCommand": "pip install -r requirements.txt",
   "buildCommand": "echo 'Build complete'",
   "outputDirectory": ".",
-  
-  "// Framework Detection": "Disable automatic framework detection",
   "framework": null,
-  
-  "// Regional Configuration": "Deploy to specific regions for better performance",
   "regions": ["iad1"]
 }
-```
-
-Additionally, create these supplementary files for proper deployment:
-
-**requirements.txt** (example):
-```txt
-fastapi==0.104.1
-streamlit==1.28.2
-uvicorn==0.24.0
-python-multipart==0.0.6
-anthropic==0.7.1
-amadeus==9.0.0
-requests==2.31.0
-psycopg2-binary==2.9.9
-sqlalchemy==2.0.23
-pydantic==2.5.0
-python-dotenv==1.0.0
-```
-
-**api/index.py** (wrapper for FastAPI):
-```python
-"""
-Vercel serverless function wrapper for FastAPI app
-"""
-from main import app
-
-# Export the FastAPI app for Vercel
-handler = app
-```
-
-**streamlit_config.toml** (.streamlit/config.toml):
-```toml
-[server]
-headless = true
-port = 8501
-enableCORS = false
-enableXsrfProtection = false
-
-[browser]
-serverAddress = "0.0.0.0"
-serverPort = 8501
-```
-
-**Note**: 
-- Environment variables prefixed with `@` (e.g., `@anthropic_api_key`) reference Vercel secrets that should be set in your Vercel dashboard
-- Adjust memory and maxDuration based on your application's needs
-- The region can be changed based on your target audience location
