@@ -11,7 +11,6 @@ from tools.mailjet_email_tool import MailJetEmailTool
 # Configuration
 # Get API URL from environment variable, fallback to localhost for development
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8002")
-print(f"🌍 Using API_BASE_URL: {API_BASE_URL}")
 JWT_SECRET = "your-secret-key-change-this-in-production"  # Should match backend secret
 JWT_ALGORITHM = "HS256"
 
@@ -66,7 +65,6 @@ def make_api_request(endpoint: str, method: str = "GET", data: dict = None, head
     url = f"{API_BASE_URL}{endpoint}"
     
     try:
-        st.info(f"🌐 Making {method} request to: {url}")
         if method == "GET":
             response = requests.get(url, params=data, headers=headers, timeout=60)
         elif method == "POST":
@@ -77,7 +75,6 @@ def make_api_request(endpoint: str, method: str = "GET", data: dict = None, head
         else:
             raise ValueError(f"Unsupported method: {method}")
         
-        st.info(f"✅ Request completed. Status: {response.status_code}")
         return response
     except requests.exceptions.ConnectionError as e:
         st.error(f"❌ Cannot connect to the backend server at {url}")
@@ -215,13 +212,11 @@ def register_page():
                         st.error("❌ Password must be at least 6 characters long")
                     else:
                         # Make API call to register endpoint
-                        st.info(f"🔄 Attempting registration to: {API_BASE_URL}/register")
                         response = make_api_request(
                             "/register",
                             method="POST",
                             data={"username": username, "email": email, "password": password}
                         )
-                        st.info(f"📡 API Response received: {response is not None}")
                         
                         if response and response.status_code == 201:
                             st.success("✅ Registration successful! Please login.")
@@ -583,7 +578,6 @@ def search_page():
                     
                     if response and response.status_code == 202:
                         search_response = response.json()
-                        st.info(f"🚀 Search started successfully! Search ID: {search_response.get('search_id', 'Unknown')}")
                         
                         # Enhanced backend returns search_id and processes asynchronously
                         if 'search_id' in search_response:
@@ -703,25 +697,19 @@ def handle_email_sharing_modals():
                     
                     # Handle form submission
                     if send_button:
-                        st.info("🔄 Processing email request...")
-                        print(f"📧 Email send button clicked for recipient: {recipient_email}")
-                        
                         if recipient_email:
                             if '@' in recipient_email and '.' in recipient_email:  # Basic email validation
-                                print(f"📧 Attempting to send email to: {recipient_email}")
-                                print(f"📧 Recommendation data keys: {list(recommendation_data.keys()) if recommendation_data else 'None'}")
-                                
-                                # Send email using MailJet
-                                result = send_recommendation_email(
-                                    recipient_email=recipient_email,
-                                    recommendation_data=recommendation_data,
-                                    sender_name=st.session_state.username
-                                )
-                                
-                                print(f"📧 Email send result: {result}")
+                                with st.spinner("📧 Sending email..."):
+                                    # Send email using MailJet
+                                    result = send_recommendation_email(
+                                        recipient_email=recipient_email,
+                                        recommendation_data=recommendation_data,
+                                        sender_name=st.session_state.username
+                                    )
                                 
                                 if result.get('status') == 'success':
                                     st.success(f"✅ Email sent successfully to {recipient_email}!")
+                                    st.info("📧 **Note:** Please check your spam/junk folder if you don't see the email in your inbox within a few minutes.")
                                     # Clear modal state
                                     st.session_state[modal_key] = False
                                     if recommendation_key in st.session_state:
@@ -729,7 +717,6 @@ def handle_email_sharing_modals():
                                     st.rerun()
                                 else:
                                     st.error(f"❌ Failed to send email: {result.get('message', 'Unknown error')}")
-                                    st.error(f"Debug: Full result: {result}")
                             else:
                                 st.error("❌ Please enter a valid email address")
                         else:
@@ -745,25 +732,16 @@ def handle_email_sharing_modals():
 def send_recommendation_email(recipient_email: str, recommendation_data: dict, sender_name: str) -> dict:
     """Send recommendation email using MailJet"""
     try:
-        print(f"📧 Initializing MailJet email tool...")
         email_tool = MailJetEmailTool()
-        print(f"📧 Email tool initialized successfully")
-        
-        result = email_tool.send_recommendation_email(
+        return email_tool.send_recommendation_email(
             recipient_email=recipient_email,
             recommendation_data=recommendation_data,
             user_name=sender_name
         )
-        print(f"📧 Email tool returned: {result}")
-        return result
     except Exception as e:
-        error_msg = f'Error initializing email service: {str(e)}'
-        print(f"📧 Email error: {error_msg}")
-        import traceback
-        print(f"📧 Full traceback: {traceback.format_exc()}")
         return {
             'status': 'error',
-            'message': error_msg
+            'message': f'Error initializing email service: {str(e)}'
         }
 
 def results_page():

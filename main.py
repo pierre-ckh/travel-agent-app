@@ -75,30 +75,17 @@ else:
 # Try to connect to database with fallback to SQLite
 if database_available and Database:
     try:
-        print(f"Attempting database connection to: {database_url[:50]}...")
         db = Database(database_url)
-        print("✅ Database connection successful!")
     except Exception as e:
-        print(f"❌ Primary database connection failed: {e}")
-        print(f"Error type: {type(e).__name__}")
-        import traceback
-        print(f"Full traceback: {traceback.format_exc()}")
-        
-        print("🔄 Falling back to SQLite...")
+        # Fallback to SQLite
         try:
             import tempfile
             temp_dir = tempfile.gettempdir()
             sqlite_url = f"sqlite:///{temp_dir}/travel_app_fallback.db"
-            print(f"Trying SQLite fallback: {sqlite_url}")
             db = Database(sqlite_url)
-            print("✅ SQLite fallback connection successful!")
         except Exception as e2:
-            print(f"❌ SQLite fallback also failed: {e2}")
-            print(f"SQLite error type: {type(e2).__name__}")
-            print(f"SQLite traceback: {traceback.format_exc()}")
             db = None
 else:
-    print("Database module not available - running without database")
     db = None
 
 # Helper function to check database availability
@@ -254,9 +241,6 @@ async def process_trip_search(search_id: str, user_id: int, search_params: dict)
             "user_id": user_id
         }
         
-        print(f"🔄 Starting CrewAI trip search for search_id: {search_id}")
-        print(f"📍 Parameters: {search_params}")
-        
         # Initialize RealTripPlannerCrew with parameters
         crew = RealTripPlannerCrew(
             destination=search_params["destination"],
@@ -272,9 +256,7 @@ async def process_trip_search(search_id: str, user_id: int, search_params: dict)
         )
         
         # Execute the crew
-        print("🚀 Executing CrewAI trip planning crew...")
         crew_result = crew.kickoff()
-        print(f"✅ CrewAI execution completed: {type(crew_result)}")
         
         # Extract the text properly from crew result
         if hasattr(crew_result, 'raw') and crew_result.raw:
@@ -289,9 +271,6 @@ async def process_trip_search(search_id: str, user_id: int, search_params: dict)
             # Remove any extra spaces and normalize line breaks
             recommendation_text = recommendation_text.replace('\n\n\n', '\n\n')
             recommendation_text = recommendation_text.strip()
-        
-        print(f"📝 Recommendation text length: {len(recommendation_text)}")
-        print(f"📝 First 200 chars: {recommendation_text[:200]}")
         
         # Format results for frontend
         results = {
@@ -422,10 +401,7 @@ async def register(user: UserRegister):
 @app.post("/login", response_model=Token)
 async def login(username: str = Form(...), password: str = Form(...)):
     """Login and receive JWT tokens"""
-    print(f"Login attempt for username: {username}")
-    
     user = authenticate_user(username, password)
-    print(f"Authentication result: {user is not False}")
     
     if not user:
         raise HTTPException(
@@ -434,23 +410,19 @@ async def login(username: str = Form(...), password: str = Form(...)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    print("Creating tokens...")
     # Create tokens
     access_token = create_access_token(data={"sub": user["username"]})
     refresh_token = create_refresh_token(data={"sub": user["username"]})
     
-    print("Storing refresh token...")
     # Store refresh token in memory (optional, for token management)
     refresh_tokens[f"refresh:{user['username']}:{refresh_token[:10]}"] = refresh_token
     
-    print("Updating last login...")
     # Update last login
     try:
         db.update_last_login(user["id"])
     except Exception as e:
-        print(f"Warning: Could not update last login: {e}")
+        pass  # Non-critical operation
     
-    print("Login successful!")
     return Token(
         access_token=access_token,
         refresh_token=refresh_token
