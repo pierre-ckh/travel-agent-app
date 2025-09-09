@@ -703,8 +703,14 @@ def handle_email_sharing_modals():
                     
                     # Handle form submission
                     if send_button:
+                        st.info("🔄 Processing email request...")
+                        print(f"📧 Email send button clicked for recipient: {recipient_email}")
+                        
                         if recipient_email:
                             if '@' in recipient_email and '.' in recipient_email:  # Basic email validation
+                                print(f"📧 Attempting to send email to: {recipient_email}")
+                                print(f"📧 Recommendation data keys: {list(recommendation_data.keys()) if recommendation_data else 'None'}")
+                                
                                 # Send email using MailJet
                                 result = send_recommendation_email(
                                     recipient_email=recipient_email,
@@ -712,7 +718,9 @@ def handle_email_sharing_modals():
                                     sender_name=st.session_state.username
                                 )
                                 
-                                if result['status'] == 'success':
+                                print(f"📧 Email send result: {result}")
+                                
+                                if result.get('status') == 'success':
                                     st.success(f"✅ Email sent successfully to {recipient_email}!")
                                     # Clear modal state
                                     st.session_state[modal_key] = False
@@ -720,7 +728,8 @@ def handle_email_sharing_modals():
                                         del st.session_state[recommendation_key]
                                     st.rerun()
                                 else:
-                                    st.error(f"❌ Failed to send email: {result['message']}")
+                                    st.error(f"❌ Failed to send email: {result.get('message', 'Unknown error')}")
+                                    st.error(f"Debug: Full result: {result}")
                             else:
                                 st.error("❌ Please enter a valid email address")
                         else:
@@ -736,16 +745,25 @@ def handle_email_sharing_modals():
 def send_recommendation_email(recipient_email: str, recommendation_data: dict, sender_name: str) -> dict:
     """Send recommendation email using MailJet"""
     try:
+        print(f"📧 Initializing MailJet email tool...")
         email_tool = MailJetEmailTool()
-        return email_tool.send_recommendation_email(
+        print(f"📧 Email tool initialized successfully")
+        
+        result = email_tool.send_recommendation_email(
             recipient_email=recipient_email,
             recommendation_data=recommendation_data,
             user_name=sender_name
         )
+        print(f"📧 Email tool returned: {result}")
+        return result
     except Exception as e:
+        error_msg = f'Error initializing email service: {str(e)}'
+        print(f"📧 Email error: {error_msg}")
+        import traceback
+        print(f"📧 Full traceback: {traceback.format_exc()}")
         return {
             'status': 'error',
-            'message': f'Error initializing email service: {str(e)}'
+            'message': error_msg
         }
 
 def results_page():
