@@ -335,6 +335,8 @@ async def create_test_user():
 @app.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user: UserRegister):
     """Register a new user"""
+    require_database()
+    
     # Check if user exists
     existing_user = db.get_user_by_auth(username=user.username)
     if existing_user:

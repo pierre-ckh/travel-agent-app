@@ -220,8 +220,16 @@ def register_page():
                             st.rerun()
                         elif response and response.status_code == 400:
                             st.error("❌ Username already exists")
+                        elif response and response.status_code == 503:
+                            st.error("❌ Database not available. Please try again later.")
                         else:
-                            st.error("❌ Registration failed. Please try again.")
+                            st.error(f"❌ Registration failed. Status code: {response.status_code if response else 'No response'}")
+                            if response:
+                                try:
+                                    error_data = response.json()
+                                    st.error(f"Debug: Error details: {error_data}")
+                                except:
+                                    st.error(f"Debug: Raw response: {response.text}")
                 else:
                     st.warning("Please fill in all fields")
             
