@@ -113,10 +113,22 @@ class MailJetEmailTool:
         # Extract key information
         title = recommendation_data.get("title", "Travel Recommendation")
         description = recommendation_data.get("description", "Check out this amazing travel plan!")
-        full_recommendation = recommendation_data.get("full_recommendation", "")
+        
+        # Handle different data structures - try multiple sources for the recommendation text
+        full_recommendation = (
+            recommendation_data.get("full_recommendation") or 
+            recommendation_data.get("raw") or 
+            recommendation_data.get("description") or 
+            str(recommendation_data) if isinstance(recommendation_data, dict) else str(recommendation_data)
+        )
+        
         destination = recommendation_data.get("destination", "Unknown Destination")
         dates = recommendation_data.get("dates", "Dates not specified")
         budget = recommendation_data.get("budget", 0)
+        
+        print(f"📧 Email data keys: {list(recommendation_data.keys()) if isinstance(recommendation_data, dict) else 'Not a dict'}")
+        print(f"📧 Recommendation source: {'full_recommendation' if recommendation_data.get('full_recommendation') else 'raw' if recommendation_data.get('raw') else 'other'}")
+        print(f"📧 Text length: {len(str(full_recommendation))}")
         
         # Format the recommendation text for HTML
         formatted_recommendation = self._format_text_for_html(full_recommendation)
