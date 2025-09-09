@@ -24,7 +24,7 @@ except ImportError as e:
     Database = None
     database_available = False
     
-# from agents import TripPlannerCrew  # Comment out for now if causing issues
+from real_agents import RealTripPlannerCrew
 
 
 # Load environment variables
@@ -244,9 +244,9 @@ def authenticate_user(username: str, password: str):
         return False
     return user
 
-# Background task for trip processing (simplified without CrewAI for now)
+# Background task for trip processing using RealTripPlannerCrew
 async def process_trip_search(search_id: str, user_id: int, search_params: dict):
-    """Background task to process trip search"""
+    """Background task to process trip search using CrewAI agents"""
     try:
         # Update status in memory
         search_cache[f"search:{search_id}"] = {
@@ -254,31 +254,44 @@ async def process_trip_search(search_id: str, user_id: int, search_params: dict)
             "user_id": user_id
         }
         
-        # Simulate processing delay
-        await asyncio.sleep(2)
+        print(f"🔄 Starting CrewAI trip search for search_id: {search_id}")
+        print(f"📍 Parameters: {search_params}")
         
-        # Generate mock results for now
-        mock_results = {
+        # Initialize RealTripPlannerCrew with parameters
+        crew = RealTripPlannerCrew(
+            destination=search_params["destination"],
+            start_date=search_params["start_date"],
+            end_date=search_params.get("end_date"),
+            budget=search_params["budget"],
+            interests=search_params.get("interests", []),
+            travel_style=search_params.get("travel_style", "comfort"),
+            origin=search_params.get("origin", "NYC"),
+            hotel_adults=search_params.get("hotel_adults", 2),
+            hotel_rooms=search_params.get("hotel_rooms", 1),
+            hotel_children=search_params.get("hotel_children", 0)
+        )
+        
+        # Execute the crew
+        print("🚀 Executing CrewAI trip planning crew...")
+        crew_result = crew.kickoff()
+        print(f"✅ CrewAI execution completed: {type(crew_result)}")
+        
+        # Format results for frontend
+        results = {
             "results": [
                 {
-                    "airline": "Delta Airlines",
-                    "flight_number": "DL123",
-                    "price": 850,
-                    "duration": 6.5,
-                    "stops": 1,
-                    "departure_time": "08:00 AM",
-                    "arrival_time": "02:30 PM",
-                    "aircraft_type": "Boeing 737"
-                },
-                {
-                    "airline": "American Airlines", 
-                    "flight_number": "AA456",
-                    "price": 920,
-                    "duration": 7.2,
-                    "stops": 2,
-                    "departure_time": "10:15 AM",
-                    "arrival_time": "05:18 PM",
-                    "aircraft_type": "Airbus A320"
+                    "type": "enhanced_recommendation",
+                    "title": f"AI-Powered Trip to {search_params['destination']}",
+                    "destination": search_params["destination"],
+                    "dates": f"{search_params['start_date']} - {search_params.get('end_date', 'Open')}",
+                    "budget": search_params["budget"],
+                    "full_recommendation": str(crew_result),
+                    "api_sources": ["Amadeus Flight API", "Booking.com Hotels", "Claude AI"],
+                    "tasks": [
+                        "Searched real flight options via Amadeus API",
+                        "Found hotel accommodations via Booking.com API", 
+                        "Generated personalized itinerary with Claude AI"
+                    ]
                 }
             ]
         }
@@ -287,7 +300,7 @@ async def process_trip_search(search_id: str, user_id: int, search_params: dict)
         search_result = {
             "status": "completed",
             "user_id": user_id,
-            "results": mock_results,
+            "results": results,
             "completed_at": datetime.utcnow().isoformat()
         }
         
@@ -475,44 +488,79 @@ async def unregister(
 @app.post("/search", response_model=TripSearchResponse, status_code=status.HTTP_202_ACCEPTED)
 async def trip_search(
     background_tasks: BackgroundTasks,
+    # Frontend parameters - map to what RealTripPlannerCrew expects
+    origin: str = Form(...),
     destination: str = Form(...),
-    start_date: str = Form(...),
-    end_date: str = Form(...),
+    departure_date: str = Form(...),  # Maps to start_date
+    return_date: Optional[str] = Form(None),  # Maps to end_date
+    adults: int = Form(1),
+    children: int = Form(0),
+    infants: int = Form(0),
+    max_stops: Optional[int] = Form(None),
+    trip_type: str = Form("economy"),
+    flight_currency: str = Form("USD"),
+    hotel_nights: int = Form(0),
+    hotel_adults: int = Form(2),
+    hotel_rooms: int = Form(1),
+    hotel_children: int = Form(0),
+    hotel_currency: str = Form("USD"),
+    hotel_price_min: int = Form(0),
+    hotel_price_max: int = Form(500),
+    hotel_sort: str = Form("price"),
+    hotel_locale: str = Form("en-gb"),
     budget: float = Form(...),
-    interests: Optional[str] = Form(None),
-    travel_style: Optional[str] = Form("comfort"),
+    preferences: Optional[str] = Form(""),
+    notes: Optional[str] = Form(""),
     current_user: dict = Depends(get_current_user)
 ):
     """
     Search for trip recommendations using CrewAI
     Returns immediately with search_id, processing happens in background
     """
-    # Parse interests
+    # Parse interests from preferences
     interests_list = []
-    if interests:
-        interests_list = [i.strip() for i in interests.split(",") if i.strip()]
+    if preferences:
+        interests_list = [i.strip() for i in preferences.split(",") if i.strip()]
     
-    # Validate request
-    search_request = TripSearchRequest(
-        destination=destination,
-        start_date=start_date,
-        end_date=end_date,
-        budget=budget,
-        interests=interests_list,
-        travel_style=travel_style
-    )
+    # Map frontend parameters to backend format
+    start_date = departure_date  # Map departure_date to start_date
+    end_date = return_date  # Map return_date to end_date 
+    travel_style = "comfort"  # Default travel style
+    
+    # Validate basic required fields
+    if not destination or not start_date or not budget:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing required fields: destination, departure_date, budget"
+        )
     
     # Generate search ID
     search_id = str(uuid.uuid4())
     
-    # Prepare search parameters
+    # Prepare comprehensive search parameters for RealTripPlannerCrew
     search_params = {
-        "destination": search_request.destination,
-        "start_date": search_request.start_date,
-        "end_date": search_request.end_date,
-        "budget": search_request.budget,
-        "interests": search_request.interests,
-        "travel_style": search_request.travel_style
+        "destination": destination,
+        "start_date": start_date,
+        "end_date": end_date,
+        "budget": budget,
+        "interests": interests_list,
+        "travel_style": travel_style,
+        "origin": origin,
+        # Hotel parameters
+        "hotel_adults": hotel_adults,
+        "hotel_rooms": hotel_rooms, 
+        "hotel_children": hotel_children,
+        "hotel_currency": hotel_currency,
+        "hotel_price_min": hotel_price_min,
+        "hotel_price_max": hotel_price_max,
+        # Flight parameters
+        "adults": adults,
+        "children": children,
+        "infants": infants,
+        "trip_type": trip_type,
+        "flight_currency": flight_currency,
+        # Additional
+        "notes": notes
     }
     
     # Add background task
