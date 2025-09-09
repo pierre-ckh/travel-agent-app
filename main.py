@@ -276,6 +276,23 @@ async def process_trip_search(search_id: str, user_id: int, search_params: dict)
         crew_result = crew.kickoff()
         print(f"✅ CrewAI execution completed: {type(crew_result)}")
         
+        # Extract the text properly from crew result
+        if hasattr(crew_result, 'raw') and crew_result.raw:
+            recommendation_text = crew_result.raw
+        elif hasattr(crew_result, 'result') and crew_result.result:
+            recommendation_text = crew_result.result
+        else:
+            recommendation_text = str(crew_result)
+        
+        # Clean up the text formatting
+        if isinstance(recommendation_text, str):
+            # Remove any extra spaces and normalize line breaks
+            recommendation_text = recommendation_text.replace('\n\n\n', '\n\n')
+            recommendation_text = recommendation_text.strip()
+        
+        print(f"📝 Recommendation text length: {len(recommendation_text)}")
+        print(f"📝 First 200 chars: {recommendation_text[:200]}")
+        
         # Format results for frontend
         results = {
             "results": [
@@ -285,7 +302,7 @@ async def process_trip_search(search_id: str, user_id: int, search_params: dict)
                     "destination": search_params["destination"],
                     "dates": f"{search_params['start_date']} - {search_params.get('end_date', 'Open')}",
                     "budget": search_params["budget"],
-                    "full_recommendation": str(crew_result),
+                    "full_recommendation": recommendation_text,
                     "api_sources": ["Amadeus Flight API", "Booking.com Hotels", "Claude AI"],
                     "tasks": [
                         "Searched real flight options via Amadeus API",

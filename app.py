@@ -807,7 +807,16 @@ def results_page():
                     
                     # Show the full AI recommendation
                     with st.expander("📖 View Full AI-Powered Trip Plan", expanded=True):
-                        st.markdown(trip.get('full_recommendation', trip.get('description', 'No details available')))
+                        recommendation_text = trip.get('full_recommendation', trip.get('description', 'No details available'))
+                        
+                        # Clean up any formatting issues
+                        if isinstance(recommendation_text, str):
+                            # Fix common text display issues
+                            recommendation_text = recommendation_text.replace('\\n', '\n')
+                            # Ensure proper spacing
+                            recommendation_text = recommendation_text.replace('\n\n\n', '\n\n')
+                        
+                        st.markdown(recommendation_text)
                     
                     # Show processing summary
                     if trip.get('tasks'):
