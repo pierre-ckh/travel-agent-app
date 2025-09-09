@@ -121,6 +121,12 @@ class MailJetEmailTool:
         # Format the recommendation text for HTML
         formatted_recommendation = self._format_text_for_html(full_recommendation)
         
+        # Debug: Print what we're formatting
+        print(f"📧 DEBUG - Original text length: {len(full_recommendation)}")
+        print(f"📧 DEBUG - Original text preview: {full_recommendation[:200]}...")
+        print(f"📧 DEBUG - Formatted HTML length: {len(formatted_recommendation)}")
+        print(f"📧 DEBUG - Formatted HTML preview: {formatted_recommendation[:300]}...")
+        
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -237,48 +243,52 @@ class MailJetEmailTool:
     def _format_text_for_html(self, text: str) -> str:
         """Format text content for proper HTML display."""
         if not text:
-            return "<p>No recommendation available.</p>"
+            return "<p style='color: red;'>No recommendation available.</p>"
         
         import html
         import re
         
-        # Escape HTML characters first
-        formatted_text = html.escape(str(text))
+        # Convert to string and escape HTML
+        text = str(text)
+        print(f"📧 STEP 1 - Raw text: {repr(text[:100])}...")
         
-        # Convert double line breaks to paragraph breaks
-        formatted_text = re.sub(r'\n\n+', '</p><p style="margin: 12px 0;">', formatted_text)
+        # Escape HTML characters
+        formatted_text = html.escape(text)
+        print(f"📧 STEP 2 - After HTML escape: {repr(formatted_text[:100])}...")
         
-        # Convert markdown-style bold text
-        formatted_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', formatted_text)
-        
-        # Convert single line breaks to <br> tags
+        # Simple approach: just convert line breaks to <br> and add basic styling
+        formatted_text = formatted_text.replace('\n\n', '</p><p style="margin: 15px 0; line-height: 1.6;">')
         formatted_text = formatted_text.replace('\n', '<br>')
         
-        # Handle section headers (lines starting with emojis)
-        lines = formatted_text.split('</p><p style="margin: 12px 0;">')
-        processed_lines = []
+        # Convert **bold** text
+        formatted_text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #2c3e50;">\1</strong>', formatted_text)
         
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Check if line looks like a header (contains emojis at start)
-            if re.match(r'^[🌴✈️🏨💰🗺️📋🤝📅🎯🎨🔥⚙️]', line):
-                # This is a section header
-                processed_lines.append(f'<h4 style="color: #2196f3; margin-top: 24px; margin-bottom: 12px; font-size: 18px;">{line}</h4>')
-            else:
-                # Regular content
-                processed_lines.append(f'<div style="margin: 12px 0; line-height: 1.6;">{line}</div>')
+        # Wrap in paragraph tags
+        if not formatted_text.startswith('<p'):
+            formatted_text = f'<p style="margin: 15px 0; line-height: 1.6;">{formatted_text}</p>'
         
-        # Join all content
-        result = '\n'.join(processed_lines)
+        # Basic header detection - simpler approach
+        formatted_text = re.sub(
+            r'<p([^>]*)>([🌴✈️🏨💰🗺️📋🤝📅🎯🎨🔥⚙️][^<]*)</p>',
+            r'<h3 style="color: #3498db; margin: 25px 0 15px 0; font-size: 20px; border-bottom: 2px solid #3498db; padding-bottom: 10px;">\2</h3>',
+            formatted_text
+        )
         
-        # Wrap in a container if not empty
-        if result:
-            return f'<div style="font-family: Arial, sans-serif; line-height: 1.6;">{result}</div>'
-        else:
-            return "<p>No recommendation available.</p>"
+        result = f'''
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    color: #2c3e50; 
+                    line-height: 1.6; 
+                    max-width: 800px; 
+                    margin: 0 auto;
+                    background-color: #ffffff;
+                    padding: 20px;
+                    border-radius: 10px;">
+            {formatted_text}
+        </div>
+        '''
+        
+        print(f"📧 STEP 3 - Final HTML: {repr(result[:200])}...")
+        return result
     
     def _format_recommendation_text(self, recommendation_data: Dict[str, Any], user_name: str) -> str:
         """Format the recommendation data into plain text email content."""
