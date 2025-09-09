@@ -136,7 +136,7 @@ def login_page():
                     try:
                         # Make API call to login endpoint  
                         response = make_api_request(
-                            "/simple-login",
+                            "/login",
                             method="POST",
                             data={"username": username, "password": password},
                             form_data=True
