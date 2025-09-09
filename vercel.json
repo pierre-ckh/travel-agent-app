@@ -60,36 +60,6 @@
       "DATABASE_URL": "@database_url"
     }
   },
-  "functions": {
-    "main.py": {
-      "runtime": "python3.10",
-      "memory": 1024,
-      "maxDuration": 30,
-      "environment": {
-        "ANTHROPIC_API_KEY": "@anthropic_api_key",
-        "AMADEUS_API_KEY": "@amadeus_api_key",
-        "AMADEUS_API_SECRET": "@amadeus_api_secret",
-        "BOOKING_API_KEY": "@booking_api_key",
-        "MAILGUN_API_KEY": "@mailgun_api_key",
-        "MAILGUN_DOMAIN": "@mailgun_domain",
-        "DATABASE_URL": "@database_url"
-      }
-    },
-    "app.py": {
-      "runtime": "python3.10",
-      "memory": 1024,
-      "maxDuration": 30,
-      "environment": {
-        "ANTHROPIC_API_KEY": "@anthropic_api_key",
-        "AMADEUS_API_KEY": "@amadeus_api_key",
-        "AMADEUS_API_SECRET": "@amadeus_api_secret",
-        "BOOKING_API_KEY": "@booking_api_key",
-        "MAILGUN_API_KEY": "@mailgun_api_key",
-        "MAILGUN_DOMAIN": "@mailgun_domain",
-        "DATABASE_URL": "@database_url"
-      }
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
