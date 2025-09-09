@@ -214,7 +214,7 @@ class MailJetEmailTool:
                 
                 <div class="recommendation-text">
                     <h3>🤖 AI-Powered Recommendation</h3>
-                    <div style="white-space: pre-wrap;">{full_recommendation}</div>
+                    <div style="white-space: pre-wrap;">{self._format_text_for_html(full_recommendation)}</div>
                 </div>
                 
                 <div class="footer">
@@ -230,6 +230,44 @@ class MailJetEmailTool:
         </html>
         """
         return html_content
+    
+    def _format_text_for_html(self, text: str) -> str:
+        """Format text content for proper HTML display."""
+        if not text:
+            return ""
+        
+        import html
+        # Escape HTML characters
+        formatted_text = html.escape(text)
+        
+        # Convert markdown-like formatting to HTML (basic support)
+        import re
+        # Handle bold text **text**
+        formatted_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', formatted_text)
+        # Handle italic text *text* (but not already processed bold)
+        formatted_text = re.sub(r'(?<!</strong>)\*([^*]+?)\*(?!<strong>)', r'<em>\1</em>', formatted_text)
+        
+        # Handle section headers (lines starting with emojis or special chars)
+        lines = formatted_text.split('\n')
+        processed_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                processed_lines.append('<br>')
+                continue
+                
+            # Check if line looks like a header (starts with emoji or special formatting)
+            if any(char in line[:10] for char in ['🌴', '✈️', '🏨', '💰', '🗺️', '📋', '🤝']) and len(line) > 5:
+                processed_lines.append(f'<h4 style="color: #2196f3; margin-top: 20px; margin-bottom: 10px;">{line}</h4>')
+            elif line.startswith('- ') or line.startswith('• '):
+                processed_lines.append(f'<li style="margin: 5px 0;">{line[2:]}</li>')
+            elif line.startswith('1. ') or line.startswith('2. ') or any(line.startswith(f'{i}. ') for i in range(1, 10)):
+                processed_lines.append(f'<li style="margin: 5px 0;">{line[3:]}</li>')
+            else:
+                processed_lines.append(f'<p style="margin: 8px 0;">{line}</p>')
+        
+        return '\n'.join(processed_lines)
     
     def _format_recommendation_text(self, recommendation_data: Dict[str, Any], user_name: str) -> str:
         """Format the recommendation data into plain text email content."""
