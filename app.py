@@ -5,11 +5,12 @@ from datetime import datetime, date, timedelta
 import jwt
 from typing import Optional
 import json
+import os
 from tools.mailjet_email_tool import MailJetEmailTool
 
 # Configuration
-# API_BASE_URL = "http://localhost:8001"  # Simple FastAPI backend URL
-API_BASE_URL = "http://localhost:8002"  # Enhanced FastAPI backend with real APIs (uncomment to use)
+# Get API URL from environment variable, fallback to localhost for development
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8002")
 JWT_SECRET = "your-secret-key-change-this-in-production"  # Should match backend secret
 JWT_ALGORITHM = "HS256"
 
