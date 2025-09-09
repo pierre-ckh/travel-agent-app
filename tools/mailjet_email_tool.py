@@ -115,12 +115,20 @@ class MailJetEmailTool:
         description = recommendation_data.get("description", "Check out this amazing travel plan!")
         
         # Handle different data structures - try multiple sources for the recommendation text
-        full_recommendation = (
-            recommendation_data.get("full_recommendation") or 
-            recommendation_data.get("raw") or 
-            recommendation_data.get("description") or 
-            str(recommendation_data) if isinstance(recommendation_data, dict) else str(recommendation_data)
-        )
+        full_recommendation = ""
+        if isinstance(recommendation_data, dict):
+            # First try the standard keys
+            if recommendation_data.get("full_recommendation"):
+                full_recommendation = recommendation_data.get("full_recommendation")
+            elif recommendation_data.get("raw"):
+                full_recommendation = recommendation_data.get("raw")
+            elif recommendation_data.get("description"):
+                full_recommendation = recommendation_data.get("description")
+            else:
+                # If it's a dict with unknown structure, try to find text content
+                full_recommendation = str(recommendation_data)
+        else:
+            full_recommendation = str(recommendation_data)
         
         destination = recommendation_data.get("destination", "Unknown Destination")
         dates = recommendation_data.get("dates", "Dates not specified")
